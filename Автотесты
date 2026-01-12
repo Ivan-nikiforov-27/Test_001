@@ -1,0 +1,65 @@
+
+// src/config.ts
+import * as dotenv from 'dotenv';
+dotenv.config(); // Загружаем переменные окружения из .env
+
+export const ID_INSTANCE = process.env.ID_INSTANCE || '';
+export const API_TOKEN_INSTANCE = process.env.API_TOKEN_INSTANCE || '';
+export const PHONE_NUMBER = process.env.PHONE_NUMBER || '';
+
+if (!ID_INSTANCE || !API_TOKEN_INSTANCE || !PHONE_NUMBER) {
+    throw new Error('Необходимо задать ID_INSTANCE, API_TOKEN_INSTANCE и PHONE_NUMBER в переменных окружения!');
+}
+
+// src/greenApi.ts
+import axios from 'axios';
+import {ID_INSTANCE, API_TOKEN_INSTANCE} from "./config";
+
+const baseUrl = `https://api.green-api.com/waInstance${ID_INSTANCE}`;
+
+export const sendMessage = async (chatId: string, message: string) => {
+    return axios.post(`${baseUrl}/sendMessage/${API_TOKEN_INSTANCE}`, {chatId: chatId, message: message});
+};
+
+export const getChatHistory = async (chatId: string, count: number) => {
+    return axios.post(`${baseUrl}/getChatHistory/${API_TOKEN_INSTANCE}`, {chatId: chatId, count: count});
+};
+
+export const getStateInstance = async () => {
+    return axios.get(`${baseUrl}/getStateInstance/${API_TOKEN_INSTANCE}`);
+};
+
+// src/whatsapp.test.ts
+import {sendMessage, getChatHistory, getStateInstance} from './greenApi';
+import {ID_INSTANCE, PHONE_NUMBER} from "./config";
+
+const chatId = `${PHONE_NUMBER}@c.us`; // Формат chatId для WhatsApp
+
+describe('WhatsApp API Tests', () => {
+
+    it('Проверка авторизации инстанса', async () => {
+        const response = await getStateInstance();
+        expect(response.status).toBe(200);
+        expect(response.data.state).toBe('authorized');
+    });
+
+    it('Успешная отправка сообщения (200) и проверка idMessage', async () => {
+        const response = await sendMessage(chatId, 'Test message');
+        expect(response.status).toBe(200);
+        expect(response.data).toHaveProperty('idMessage');
+    });
+
+    it('Успешное получение истории чата (200)', async () => {
+        const response = await getChatHistory(chatId, 10);
+        expect(response.status).toBe(200);
+    });
+
+    it('Отправка сообщения с некорректными параметрами (400)', async () => {
+        try {
+            await sendMessage('', '');
+        } catch (error: any) {
+            expect(error.response.status).toBe(400);
+        }
+    });
+
+});
